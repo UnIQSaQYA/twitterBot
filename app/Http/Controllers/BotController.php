@@ -2,46 +2,38 @@
 
 namespace App\Http\Controllers;
 
+use MonkeyLearn\Client as MonkeyLearn;
 use Codebird\Codebird;
 use Illuminate\Http\Request;
+use App\Constants;
 
 class BotController extends Controller
 {
-
-	/**
-	 * It authenticates us to our twitter account with the help of consumer key and api key provided
-	 * by twitter.
-	 * Keys are placed in .env file for security proposes
-	 */
 	private function AuthenticateTwitter()
 	{
-		# Codebird static method setConsumerKey used to set the consumer key, 
-		Codebird::setConsumerKey($_ENV['TWITTER_CONSUMER_KEY'], $_ENV['TWITTER_CONSUMER_SECRET']);
+		Codebird::setConsumerKey('14GrWnkv2iiEheyDSuFsdhHAE', 'AvqfpEoCUi0xcX425iHXdP7roalU3r3lgqMpd97LIhLR7EbNcq');
     	$cb = Codebird::getInstance();
-    	# Set the return format to array
     	$cb->setReturnFormat(CODEBIRD_RETURNFORMAT_ARRAY);
-    	#set token to authenticate
-    	$cb->setToken($_ENV['TWITTER_APP_KEY'], $_ENV['TWITTER_APP_SECRET']);
+    	$cb->setToken('844439493168021508-aIz8EdYvnL0SsWDZdcY7PR17uI1TyWL', 'sjUdzX0nHLr2aR7PaBdhpr8JDkOl3HfQA6gJGY9hdRvJX');
 
     	return $cb;
 	}
 
-	/**
-	 * After successfull authentication this method retrives post that mentions us
-	 */
 	public function getMentionData()
 	{	
 		$mentions = $this->AuthenticateTwitter()->statuses_mentionsTimeline();
 		if(!isset($mentions[0]))
 		{
-			return;
+			return '';
 		}
 		return $mentions;	
 	}
 
 	public function AnalyzeMentionData()
 	{
+		$ml = new MonkeyLearn('3f091775337e6417988a19fd068e40ebf000b551');
 		$tweets = [];
+		$analyzeData = [];
 		foreach($this->getMentionData() as $index => $mention) {
 			if(isset($mention['id'])) {
 				$tweets[] = [
@@ -55,11 +47,33 @@ class BotController extends Controller
 		$tweetsText = array_map(function($tweet) {
 			return $tweet['text'];
 		}, $tweets);
-		dd($tweetsText);
+		$analysis = $ml->classifiers->classify('cl_qkjxv9Ly', $tweetsText, true);
+		$analyzeData = ['tweets' => $tweets, 'analysis' => $analysis];
+		return $analyzeData;
 	}
+
+	public function postReply()
+	{
+		foreach($this->AnalyzeMentionData()['tweets'] as $index => $tweet) {
+			switch(strtolower($this->AnalyzeMentionData()['analysis']->result[$index][0]['label'])) {
+				case 'positive':
+					$emojiset = Constants::$happyEmojis;
+					break;
+				case 'neutral':
+					$emojiset = Constants::$neutralEmojis;
+					break;
+				case 'negative':
+					$emojiset = Constants::$negativeEmojis;
+					break;
+				dd($emojiset);
+			}
+		}
+	} 
 
     public function getBot()
     {
+    	$this->postReply();
+    	exit();
     	$this->AnalyzeMentionData();
     	return view('bot');
     }
