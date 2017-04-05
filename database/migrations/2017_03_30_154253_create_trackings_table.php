@@ -15,7 +15,7 @@ class CreateTrackingsTable extends Migration
     {
         Schema::create('trackings', function (Blueprint $table) {
             $table->increments('id');
-            $table->integer('twitter_id')->unsigned();
+            $table->bigInteger('twitter_id')->unsigned();
             $table->timestamps();
         });
     }
